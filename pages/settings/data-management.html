@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Management - Personal Life OS</title>
+    <style>
+        /* SHARED STYLES (Copied from shell) */
+        :root {
+            --color-primary: #2563eb;
+            --color-primary-hover: #1d4ed8;
+            --color-bg-base: #f9fafb;
+            --color-bg-surface: #ffffff;
+            --color-text-main: #111827;
+            --color-text-muted: #6b7280;
+            --color-border: #e5e7eb;
+            --color-danger: #ef4444;
+            --color-success: #10b981;
+            
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --radius-md: 0.375rem;
+            --radius-lg: 0.5rem;
+            --sidebar-width: 250px;
+            --header-height: 60px;
+        }
+        [data-theme="dark"] {
+            --color-bg-base: #030712;
+            --color-bg-surface: #111827;
+            --color-text-main: #f9fafb;
+            --color-text-muted: #9ca3af;
+            --color-border: #1f2937;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, sans-serif; background-color: var(--color-bg-base); color: var(--color-text-main); display: flex; height: 100vh; overflow: hidden; }
+        
+        /* SHELL LAYOUT */
+        .sidebar { width: var(--sidebar-width); background-color: var(--color-bg-surface); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; z-index: 40; }
+        .sidebar-header { height: var(--header-height); display: flex; align-items: center; padding: 0 var(--spacing-md); border-bottom: 1px solid var(--color-border); font-weight: 700; font-size: 1.25rem; }
+        .sidebar-nav { flex: 1; overflow-y: auto; padding: var(--spacing-md) 0; }
+        .nav-item { display: flex; align-items: center; padding: var(--spacing-sm) var(--spacing-lg); color: var(--color-text-main); text-decoration: none; }
+        .nav-item:hover, .nav-item[aria-current="page"] { background-color: var(--color-bg-base); color: var(--color-primary); font-weight: 500; }
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .top-header { height: var(--header-height); background-color: var(--color-bg-surface); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between; padding: 0 var(--spacing-lg); }
+        .main-content { flex: 1; padding: var(--spacing-xl) var(--spacing-lg); overflow-y: auto; }
+        
+        /* PAGE STYLES */
+        .card { background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--spacing-lg); margin-bottom: var(--spacing-lg); }
+        .btn { padding: var(--spacing-sm) var(--spacing-md); border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 500; background: var(--color-primary); color: white; }
+        .btn:hover { background: var(--color-primary-hover); }
+        .log-console { background: #1e1e1e; color: #a3be8c; padding: var(--spacing-md); border-radius: var(--radius-md); font-family: monospace; height: 300px; overflow-y: auto; margin-top: var(--spacing-md); }
+    </style>
+</head>
+<body data-page="data-management">
+
+    <aside class="sidebar">
+        <div class="sidebar-header">PLOS</div>
+        <nav class="sidebar-nav">
+            <a href="../dashboard.html" class="nav-item">Dashboard</a>
+            <a href="../tasks/tasks.html" class="nav-item">Tasks</a>
+            <a href="settings.html" class="nav-item">Settings</a>
+            <a href="data-management.html" class="nav-item" aria-current="page">Data Mgmt</a>
+        </nav>
+    </aside>
+
+    <div class="main-wrapper">
+        <header class="top-header">
+            <div><button class="btn" style="background:transparent;color:var(--color-text-main)">☰</button></div>
+            <div>☁️ Local Only</div>
+        </header>
+
+        <main class="main-content">
+            <h1>Data Management & Diagnostics</h1>
+            <p style="color: var(--color-text-muted); margin-bottom: 2rem;">Manage local storage and verify database integrity.</p>
+
+            <div class="card">
+                <h2>Phase 2 Storage Tests</h2>
+                <p>Run the local IndexedDB test suite to verify schema creation, migrations, and CRUD operations.</p>
+                <button class="btn" id="run-tests-btn" style="margin-top: 1rem;">Run Storage Tests</button>
+                <div class="log-console" id="test-console">Ready...</div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           SHARED LOGIC: DATABASE ARCHITECTURE (INDEXEDDB WRAPPER)
+           This block will be reused across all functional pages.
+           ========================================================================== */
+        
+        const DB_CONFIG = {
+            name: 'PersonalLifeOS',
+            version: 1, // Increment for migrations
+            stores: [
+                { name: 'tasks', indexes: ['status', 'priority', 'dueDate', 'projectId'] },
+                { name: 'projects', indexes: ['status', 'goalId'] },
+                { name: 'goals', indexes: ['status'] },
+                { name: 'habits', indexes: ['status'] },
+                { name: 'finance', indexes: ['type', 'date', 'category'] },
+                { name: 'notes', indexes: ['notebookId', 'tags'] },
+                { name: 'relationships', indexes: ['sourceId', 'targetId'] },
+                { name: 'activityLogs', indexes: ['entityId', 'timestamp'] }
+            ]
+        };
+
+        class Database {
+            static db = null;
+
+            static async connect() {
+                if (this.db) return this.db;
+                
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_CONFIG.name, DB_CONFIG.version);
+
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        DB_CONFIG.stores.forEach(storeConfig => {
+                            if (!db.objectStoreNames.contains(storeConfig.name)) {
+                                const store = db.createObjectStore(storeConfig.name, { keyPath: 'id' });
+                                if (storeConfig.indexes) {
+                                    storeConfig.indexes.forEach(idx => {
+                                        store.createIndex(idx, idx, { unique: false });
+                                    });
+                                }
+                            }
+                        });
+                    };
+
+                    request.onsuccess = (event) => {
+                        this.db = event.target.result;
+                        
+                        // Handle version change (e.g., another tab upgrades the DB)
+                        this.db.onversionchange = () => {
+                            this.db.close();
+                            this.db = null;
+                            alert("Database is outdated. Please reload the page.");
+                        };
+                        resolve(this.db);
+                    };
+
+                    request.onerror = (event) => {
+                        console.error("IndexedDB connection error:", event.target.error);
+                        reject(event.target.error);
+                    };
+
+                    request.onblocked = () => {
+                        alert("Database upgrade blocked. Please close other tabs of this app.");
+                    };
+                });
+            }
+
+            static async runTransaction(storeName, mode, callback) {
+                const db = await this.connect();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(storeName, mode);
+                    const store = transaction.objectStore(storeName);
+                    
+                    let result;
+                    try {
+                        result = callback(store);
+                    } catch (err) {
+                        reject(err);
+                    }
+
+                    transaction.oncomplete = () => resolve(result);
+                    transaction.onerror = (e) => reject(e.target.error);
+                    transaction.onabort = (e) => reject(e.target.error);
+                });
+            }
+        }
+
+        /* ==========================================================================
+           SHARED LOGIC: REPOSITORY PATTERN
+           ========================================================================== */
+
+        class BaseRepository {
+            constructor(storeName) {
+                this.storeName = storeName;
+            }
+
+            generateId() {
+                return typeof crypto !== 'undefined' && crypto.randomUUID 
+                    ? crypto.randomUUID() 
+                    : Date.now().toString(36) + Math.random().toString(36).substr(2);
+            }
+
+            async create(data) {
+                const record = {
+                    id: this.generateId(),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    ...data
+                };
+
+                await Database.runTransaction(this.storeName, 'readwrite', (store) => {
+                    store.add(record);
+                });
+                return record;
+            }
+
+            async get(id) {
+                return Database.runTransaction(this.storeName, 'readonly', (store) => {
+                    return new Promise((resolve, reject) => {
+                        const request = store.get(id);
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => reject(request.error);
+                    });
+                });
+            }
+
+            async update(id, updates) {
+                return Database.runTransaction(this.storeName, 'readwrite', (store) => {
+                    return new Promise((resolve, reject) => {
+                        const getReq = store.get(id);
+                        getReq.onsuccess = () => {
+                            if (!getReq.result) return reject(new Error('Record not found'));
+                            const updatedRecord = { ...getReq.result, ...updates, updatedAt: new Date().toISOString() };
+                            const putReq = store.put(updatedRecord);
+                            putReq.onsuccess = () => resolve(updatedRecord);
+                            putReq.onerror = () => reject(putReq.error);
+                        };
+                        getReq.onerror = () => reject(getReq.error);
+                    });
+                });
+            }
+
+            async delete(id) {
+                await Database.runTransaction(this.storeName, 'readwrite', (store) => store.delete(id));
+                return true;
+            }
+
+            async getAll() {
+                return Database.runTransaction(this.storeName, 'readonly', (store) => {
+                    return new Promise((resolve, reject) => {
+                        const request = store.getAll();
+                        request.onsuccess = () => resolve(request.result);
+                        request.onerror = () => reject(request.error);
+                    });
+                });
+            }
+        }
+
+        /* ==========================================================================
+           PAGE LOGIC: TEST RUNNER
+           ========================================================================== */
+
+        const logger = {
+            log: (msg) => {
+                const consoleEl = document.getElementById('test-console');
+                consoleEl.innerHTML += `<div>[INFO] ${msg}</div>`;
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+            },
+            error: (msg) => {
+                const consoleEl = document.getElementById('test-console');
+                consoleEl.innerHTML += `<div style="color: #bf616a;">[FAIL] ${msg}</div>`;
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+            }
+        };
+
+        async function runStorageTests() {
+            const btn = document.getElementById('run-tests-btn');
+            btn.disabled = true;
+            document.getElementById('test-console').innerHTML = '';
+            
+            try {
+                logger.log('Starting Phase 2 Storage Tests...');
+                
+                logger.log('1. Connecting to IndexedDB & Running Migrations...');
+                await Database.connect();
+                logger.log('Database connected successfully.');
+
+                const TaskRepo = new BaseRepository('tasks');
+
+                logger.log('2. Testing Create Operation...');
+                const newTask = await TaskRepo.create({ title: 'Test Task', status: 'inbox' });
+                logger.log(`Created record with ID: ${newTask.id}`);
+
+                logger.log('3. Testing Read Operation...');
+                const fetchedTask = await TaskRepo.get(newTask.id);
+                if (fetchedTask.title === 'Test Task') logger.log('Read successful.');
+                else throw new Error('Data mismatch on Read.');
+
+                logger.log('4. Testing Update Operation...');
+                await TaskRepo.update(newTask.id, { status: 'completed' });
+                const updatedTask = await TaskRepo.get(newTask.id);
+                if (updatedTask.status === 'completed' && updatedTask.updatedAt !== updatedTask.createdAt) {
+                    logger.log('Update successful.');
+                } else throw new Error('Data mismatch on Update.');
+
+                logger.log('5. Testing Delete Operation...');
+                await TaskRepo.delete(newTask.id);
+                const deletedTask = await TaskRepo.get(newTask.id);
+                if (!deletedTask) logger.log('Delete successful.');
+                else throw new Error('Record still exists after Delete.');
+
+                logger.log('All tests passed successfully! Phase 2 Core is solid.');
+
+            } catch (err) {
+                logger.error(`Test failed: ${err.message}`);
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        document.getElementById('run-tests-btn').addEventListener('click', runStorageTests);
+    </script>
+</body>
+</html>
