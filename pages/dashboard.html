@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Personal Life OS</title>
+    <style>
+        /* SHARED STYLES */
+        :root {
+            --color-primary: #2563eb;
+            --color-primary-hover: #1d4ed8;
+            --color-bg-base: #f9fafb;
+            --color-bg-surface: #ffffff;
+            --color-text-main: #111827;
+            --color-text-muted: #6b7280;
+            --color-border: #e5e7eb;
+            --color-danger: #ef4444;
+            --color-success: #10b981;
+            
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            
+            --radius-md: 0.375rem;
+            --radius-lg: 0.5rem;
+            
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            
+            --sidebar-width: 250px;
+            --header-height: 60px;
+        }
+
+        [data-theme="dark"] {
+            --color-bg-base: #030712;
+            --color-bg-surface: #111827;
+            --color-text-main: #f9fafb;
+            --color-text-muted: #9ca3af;
+            --color-border: #1f2937;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--color-bg-base);
+            color: var(--color-text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* LAYOUT & SHELL */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--color-bg-surface);
+            border-right: 1px solid var(--color-border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease;
+            z-index: 40;
+        }
+
+        .sidebar-header {
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            padding: 0 var(--spacing-md);
+            border-bottom: 1px solid var(--color-border);
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-md) 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            color: var(--color-text-main);
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+
+        .nav-item:hover, .nav-item[aria-current="page"] {
+            background-color: var(--color-bg-base);
+            color: var(--color-primary);
+            font-weight: 500;
+        }
+
+        .main-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .top-header {
+            height: var(--header-height);
+            background-color: var(--color-bg-surface);
+            border-bottom: 1px solid var(--color-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 var(--spacing-lg);
+            z-index: 30;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: var(--spacing-md);
+            align-items: center;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            color: var(--color-text-main);
+            cursor: pointer;
+            padding: var(--spacing-sm);
+            border-radius: var(--radius-md);
+        }
+        
+        .btn-icon:hover { background-color: var(--color-bg-base); }
+
+        .main-content {
+            flex: 1;
+            padding: var(--spacing-xl) var(--spacing-lg);
+            overflow-y: auto;
+        }
+
+        .page-header {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .page-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .page-desc { color: var(--color-text-muted); }
+
+        /* PAGE STYLES - DASHBOARD SPECIFIC */
+        .widget-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--spacing-lg);
+        }
+
+        .widget-card {
+            background-color: var(--color-bg-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .widget-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: var(--spacing-sm);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                height: 100%;
+                transform: translateX(-100%);
+            }
+            .sidebar.open { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body data-page="dashboard">
+
+    <!-- SHARED SIDEBAR -->
+    <aside class="sidebar" id="app-sidebar" aria-label="Main Navigation">
+        <div class="sidebar-header">PLOS</div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item" aria-current="page">Dashboard</a>
+            <a href="tasks/tasks.html" class="nav-item">Tasks</a>
+            <a href="goals/goals.html" class="nav-item">Goals</a>
+            <a href="finance/finance.html" class="nav-item">Finance</a>
+            <a href="settings/settings.html" class="nav-item">Settings</a>
+        </nav>
+    </aside>
+
+    <div class="main-wrapper">
+        <!-- SHARED HEADER -->
+        <header class="top-header">
+            <div class="header-left">
+                <button class="btn-icon" id="menu-toggle" aria-label="Toggle menu" aria-expanded="false">
+                    ☰
+                </button>
+            </div>
+            <div class="header-actions">
+                <span id="sync-status" style="font-size: 0.875rem; color: var(--color-text-muted);">☁️ Local Only</span>
+                <button class="btn-icon" id="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+            </div>
+        </header>
+
+        <!-- PAGE CONTENT -->
+        <main class="main-content">
+            <div class="page-header">
+                <h1 class="page-title" id="greeting-title">Welcome</h1>
+                <p class="page-desc" id="current-date-display">Loading date...</p>
+            </div>
+
+            <div class="widget-grid">
+                <section class="widget-card">
+                    <h2 class="widget-title">Today's Focus</h2>
+                    <div id="today-tasks-container">
+                        <p style="color: var(--color-text-muted);">No tasks due today.</p>
+                    </div>
+                </section>
+                
+                <section class="widget-card">
+                    <h2 class="widget-title">Recent Activity</h2>
+                    <div id="recent-activity-container">
+                        <p style="color: var(--color-text-muted);">System initialized.</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- SHARED LOGIC & PAGE LOGIC -->
+    <script>
+        /** 
+         * PAGE CONFIGURATION & BOOTSTRAP
+         */
+        const PAGE_CONFIG = {
+            id: 'dashboard',
+            title: 'Dashboard'
+        };
+
+        /**
+         * SHARED UI BEHAVIORS
+         */
+        function initShell() {
+            // Theme Management
+            const themeToggle = document.getElementById('theme-toggle');
+            const savedTheme = localStorage.getItem('plos_theme') || 
+                (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            themeToggle.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('plos_theme', newTheme);
+                themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+            });
+
+            // Mobile Menu
+            const menuToggle = document.getElementById('menu-toggle');
+            const sidebar = document.getElementById('app-sidebar');
+            
+            menuToggle.addEventListener('click', () => {
+                const isOpen = sidebar.classList.contains('open');
+                sidebar.classList.toggle('open');
+                menuToggle.setAttribute('aria-expanded', !isOpen);
+            });
+        }
+
+        /**
+         * PAGE SPECIFIC LOGIC (DASHBOARD)
+         */
+        function initDashboard() {
+            // Set Greeting
+            const hour = new Date().getHours();
+            let greeting = 'Good evening';
+            if (hour < 12) greeting = 'Good morning';
+            else if (hour < 18) greeting = 'Good afternoon';
+            
+            document.getElementById('greeting-title').textContent = `${greeting}.`;
+            
+            // Set Date
+            const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('current-date-display').textContent = 
+                new Date().toLocaleDateString(undefined, dateOptions);
+        }
+
+        /**
+         * SYSTEM INITIALIZATION
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            initShell();
+            initDashboard();
+        });
+    </script>
+</body>
+</html>
